@@ -4,7 +4,7 @@ from __future__ import print_function, unicode_literals
 import os
 import sys
 from boxsdk.client import Client
-from auth import authenticate
+from auth import reauthenticate
 
 
 def get_items (folder):
@@ -86,7 +86,7 @@ def push_folder (client, local_path, remote_path):
 
 
 def main (_, local_path, remote_path):
-    oauth = authenticate()
+    oauth = reauthenticate()
     push_folder (Client (oauth), local_path, remote_path)
 
 if __name__ == '__main__':
