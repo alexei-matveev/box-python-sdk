@@ -14,8 +14,60 @@ from boxsdk.auth.oauth2 import OAuth2
 CLIENT_ID = ''  # Insert Box client ID here
 CLIENT_SECRET = ''  # Insert Box client secret here
 
+# Set  this  to  a   location  where  access/refresh  tokens  will  be
+# written. Leave it as is if you dont want that.
+SECRET_LOCATION = None
 
-def authenticate():
+
+def store_tokens (access_token, refresh_token):
+    """
+    Does  nothing if  SECRET_LOCATION  == None.  Otherwise writes  two
+    lines to the file at that location.
+    """
+
+    if SECRET_LOCATION is not None:
+        with open (SECRET_LOCATION, 'w') as f:
+            print (access_token, file=f)
+            print (refresh_token, file=f)
+
+
+def load_tokens():
+    """
+    Tries to get  the last tokens. May raise an  exception if the file
+    does  not exist or  is ill-formatted.   The output  is a  tuple of
+    tokens, no room for error reporting.
+    """
+
+    # Strip  newline  char from  tokens,  readlines()  would leave  it
+    # there.  FIXME: it seems that  the access_token with a newline is
+    # accepted, but the refresh_token is not.
+    with open (SECRET_LOCATION, 'r') as f:
+        access_token, refresh_token = f.read().splitlines()
+
+    return access_token, refresh_token
+
+
+def reauthenticate():
+    try:
+        access_token, refresh_token = load_tokens()
+    except:
+        access_token, refresh_token = None, None
+
+    if access_token is not None or refresh_token is not None:
+        # Likely load_tokens()  delivered some older  tokens, dont ask
+        # user to supply account details again:
+        oauth = OAuth2 (client_id=CLIENT_ID,
+                        client_secret=CLIENT_SECRET,
+                        access_token=access_token,
+                        refresh_token=refresh_token,
+                        store_tokens=store_tokens)
+    else:
+        # First time authentication goes this way:
+        oauth = authenticate (store_tokens=store_tokens)
+
+    return oauth
+
+def authenticate (store_tokens=store_tokens):
     class StoppableWSGIServer(bottle.ServerAdapter):
         def __init__(self, *args, **kwargs):
             super(StoppableWSGIServer, self).__init__(*args, **kwargs)
@@ -48,6 +100,7 @@ def authenticate():
     oauth = OAuth2(
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
+        store_tokens=store_tokens,
     )
     auth_url, csrf_token = oauth.get_authorization_url('http://localhost:8080')
     webbrowser.open(auth_url)
